@@ -149,10 +149,80 @@ db.listingsAndReviews.find({
     ]
   }
 },
-  { "price": 1, "address": 1 }).pretty()
-// TODO : "$elemMtach" and nested array elements
+  { "price": 1, "address": 1 }
+).pretty()
+// "$elemMtach" operator to query an array that at least has 1 matching element
+// Find all documents where the student in class 431 received a grade higher than 85 for any type of assignment and project matching elems only:
+db.grades.find(
+  {
+    "class_id": 431
+  },
+  {
+    "scores": { "$elemMatch": { "score": { "$gt": 85 } } }
+  }
+).pretty()
 
 
+//// Aggregation Framework and aggregate() method
+// Using the aggregation framework find all documents that have Wifi as one of the amenities.
+// Only include price and address in the resulting cursor.
+db.listingsAndReviews.aggregate([
+  {
+    "$match": { "amenities": "Wifi" }
+  },
+  {
+    "$project": {
+      "price": 1,
+      "address": 1,
+      "_id": 0
+    }
+  }
+]).pretty()
+// Project only the address field value for each document, then group all documents into one document per address.country value.
+db.listingsAndReviews.aggregate([
+  { "$project": { "address": 1, "_id": 0 } },
+  { "$group": { "_id": "$address.country" } }
+])
+// Project only the address field value for each document,
+// then group all documents into one document per address.country value, and count one for each document in each group.
+db.listingsAndReviews.aggregate([
+  {
+    "$project": { "address": 1, "_id": 0 }
+  },
+  {
+    "$group": {
+      "_id": "$address.country",
+      "count": { "$sum": 1 }
+    }
+  }
+])
+
+//// sort() and limit() methods
+// Sort by ascending order and limit by 1 result
+db.zips.find().sort({ "pop": 1 }).limit(1)
+// Sort by descending order and limit by 10 result
+db.zips.find().sort({ "pop": -1 }).limit(10)
+
+//// Indexes
+// create indexes to optimize queries and sort operations
+// by ascending order
+db.trips.createIndex({ "start station id": 1, "birth year": 1 })
+// by descending order
+db.trips.createIndex({ "start station id": -1, "birth year": -1 })
 
 
-
+//// upsert option on update() method
+// by default upsert option is set to false
+// setting upsert true will insert a new document when there is no matching document
+db.iot.updateOne(
+  {
+    "sensor": r.sensor, "date": r.date, "valcount": { "$lt": 48 } // once valcount reaches 48 it will match no longer, thus new document is inserted
+  },
+  {
+    "$push": { "readings": { "v": r.value, "t": r.time } }, // a new reading will be pushed to readings array on every update
+    "$inc": { "valcount": 1, "total": r.value } // valcount will be incremented by 1 on each update
+  },
+  {
+    "upsert": true
+  }
+)
